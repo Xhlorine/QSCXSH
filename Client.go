@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"crypto/md5"
 	"fmt"
 	"net"
 	"os"
@@ -132,7 +133,9 @@ func DialMC(ip *string) (net.Conn, error) {
 
 // Send the player's Infomation to the server, seperated by "\r\n"
 func (p *Player) PlayerIntro() []byte {
-	return []byte(version + " " + p.nameInGame + " " + p.password + "\r\n\r\n")
+	h := md5.New()
+	h.Write([]byte(p.nameInGame + " " + p.password))
+	return []byte(version + " " + string(h.Sum(nil)) + "\r\n\r\n")
 }
 
 // Feed in specific sequence to make up a packet and send it to the server

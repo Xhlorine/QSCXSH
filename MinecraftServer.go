@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/md5"
 	"fmt"
 	"net"
 	"os"
@@ -127,22 +128,18 @@ func ProcessCONN(p *Player, conn net.Conn) (bool, error) {
 	if buf[1] != CONNECTED {
 		return false, fmt.Errorf("Unexpected")
 	}
-	var name string
-	var password string
-	fmt.Sscanf(string(buf[5:]), " %s %s\r\n\r\n", &name, &password)
+	var code5 string
+	fmt.Sscanf(string(buf[5:]), " %ss\r\n\r\n", &code5)
+	fmt.Println(version+" "+code5, "   ", string(p.PlayerIntro()))
 	// Test the version, name and password
 	if string(buf[2:5]) != version {
 		// Refuse to login
 		SendPacket(conn, []byte{0xff, CONNECTED, 0x00}, []byte("\r\n\r\n"))
 		return false, fmt.Errorf("Connection refused: Illegal version")
-	} else if name != p.nameInGame {
+	} else if !((version + " " + code5) != string(p.PlayerIntro())) {
 		// Refuse to login
 		SendPacket(conn, []byte{0xff, CONNECTED, 0x00}, []byte("\r\n\r\n"))
-		return false, fmt.Errorf("Connection refused: Inexistent User")
-	} else if password != p.password {
-		// Refuse to login
-		SendPacket(conn, []byte{0xff, CONNECTED, 0x00}, []byte("\r\n\r\n"))
-		return false, fmt.Errorf("Connection refused: Wrong password")
+		return false, fmt.Errorf("Connection refused: Wrong user info")
 	} else {
 		// Agree to login
 		SendPacket(conn, []byte{0xff, CONNECTED, 0x11}, []byte{' ', p.pos.X, ' ', p.pos.Y, ' '}, LinearAtlas(), p.PlayerIntro())
@@ -192,7 +189,9 @@ func LinearAtlas() []byte {
 
 // Send the player's Infomation to the server, seperated by "\r\n"
 func (p *Player) PlayerIntro() []byte {
-	return []byte(version + " " + p.nameInGame + " " + p.password + "\r\n\r\n")
+	h := md5.New()
+	h.Write([]byte(p.nameInGame + " " + p.password))
+	return []byte(version + " " + string(h.Sum(nil)) + "\r\n\r\n")
 }
 
 // Feed in specific sequence to make up a packet and send it to the server
